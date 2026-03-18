@@ -65,7 +65,7 @@ class HashTable:
         Returns:
             An integer bucket index in [0, self._capacity)
         """
-        raise NotImplementedError("_hash not implemented yet.")
+        return int(key * 2654435761) % self._capacity
 
     # ------------------------------------------------------------------ #
     # Core operations
@@ -89,7 +89,12 @@ class HashTable:
             key: The hash key (an integer)
             value: The value to store (in our case, a (song_id, time_offset) tuple)
         """
-        raise NotImplementedError("insert not implemented yet.")
+        index = self._hash(key)
+        self._buckets[index].append((key, value))
+        self._size += 1
+
+        if self.load_factor() > 0.75:
+            self._resize()
 
     def lookup(self, key):
         """
@@ -111,7 +116,11 @@ class HashTable:
         Returns:
             A list of values associated with this key (may be empty)
         """
-        raise NotImplementedError("lookup not implemented yet.")
+        index = self._hash(key)
+        values = []
+        for key, value in self._buckets[index]:
+            if key == f_key:
+                values.append(value)
 
     # ------------------------------------------------------------------ #
     # Size & statistics
@@ -119,11 +128,11 @@ class HashTable:
 
     def size(self):
         """Return the total number of stored entries."""
-        raise NotImplementedError("size not implemented yet.")
+        return self._size
 
     def capacity(self):
         """Return the current number of buckets."""
-        raise NotImplementedError("capacity not implemented yet.")
+        return self._capacity
 
     def load_factor(self):
         """
@@ -137,7 +146,9 @@ class HashTable:
 
         We resize when this exceeds 0.75 to keep lookups fast.
         """
-        raise NotImplementedError("load_factor not implemented yet.")
+        if self._capacity == 0:
+            return 0
+        return round(self._size / self._capacity, 4)
 
     def stats(self):
         """
@@ -156,7 +167,24 @@ class HashTable:
         Returns:
             dict with the keys described above
         """
-        raise NotImplementedError("stats not implemented yet.")
+        empty_buckets = 0
+        max_chain_length = 0
+        avg_chain_length = 0
+
+        for bucket in self._buckets:
+            if len(bucket) == 0:
+                empty_buckets +=1
+            max_chain_length = max(max_chain_length, len(bucket))
+            avg_chain_length += len(bucket)
+
+        return {
+            "capacity": self.capacity(),
+            "size": self.size(),
+            "load_factor": round(self.load_factor(), 4),
+            "empty_buckets": empty_buckets,
+            "max_chain_length": max_chain_length,
+            "avg_chain_length": round(avg_chain_length / self._capacity, 4),
+        }
 
     # ------------------------------------------------------------------ #
     # Resizing
@@ -184,7 +212,16 @@ class HashTable:
         Returns:
             The smallest prime >= n
         """
-        raise NotImplementedError("_next_prime not implemented yet.")
+        if n <= 2:
+            return 2
+        
+        prime = n
+        if prime % 2 == 0:
+            prime += 1
+
+        for i in range(3, math.floor(math.sqrt(prime))):
+            if prime % i == 0:
+                prime += 2
 
     def _resize(self):
         """
@@ -203,4 +240,14 @@ class HashTable:
         What is the time complexity of this operation? How often does it
         happen? What is the amortized cost per insertion? (Think about this!)
         """
-        raise NotImplementedError("_resize not implemented yet.")
+        new_capacity = self._next_prime(self._capacity * 2)
+        old_buckets = self._buckets
+
+        self._capacity = new_capacity
+        self._size = 0
+        self._buckets = [[] for _ in range(self._capacity)]
+
+        for bucket in old_buckets:
+            for key, value in bucket:
+                self.insert(key, value)
+
