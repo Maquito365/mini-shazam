@@ -118,9 +118,11 @@ class HashTable:
         """
         index = self._hash(key)
         values = []
-        for key, value in self._buckets[index]:
+        for f_key, value in self._buckets[index]:
             if key == f_key:
                 values.append(value)
+
+        return values
 
     # ------------------------------------------------------------------ #
     # Size & statistics
@@ -180,10 +182,10 @@ class HashTable:
         return {
             "capacity": self.capacity(),
             "size": self.size(),
-            "load_factor": round(self.load_factor(), 4),
+            "load_factor": self.load_factor(),
             "empty_buckets": empty_buckets,
             "max_chain_length": max_chain_length,
-            "avg_chain_length": round(avg_chain_length / self._capacity, 4),
+            "avg_chain_length": round(avg_chain_length / (self._capacity - empty_buckets), 4),
         }
 
     # ------------------------------------------------------------------ #
@@ -222,6 +224,7 @@ class HashTable:
         for i in range(3, math.floor(math.sqrt(prime))):
             if prime % i == 0:
                 prime += 2
+        return prime
 
     def _resize(self):
         """
