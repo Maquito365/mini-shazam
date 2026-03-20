@@ -41,6 +41,10 @@ class SongDatabase:
     # ------------------------------------------------------------------ #
 
     def index_song(self, filepath, song_name=None):
+        import os
+
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        filepath = os.path.join(base_dir, filepath)
         """
         Load an audio file, fingerprint it, and insert all fingerprints
         into the hash table.
@@ -66,7 +70,22 @@ class SongDatabase:
             The assigned song_id (int)
         """
         # TODO: Implement index_song
-        raise NotImplementedError("Implement index_song()")
+        audio, sr = load_audio(filepath)
+        fingerprints = fingerprint_audio(audio, sr)
+        song_id = self._next_id
+        self._next_id += 1
+
+        if song_name is None:
+            song_name = os.path.splitext(os.path.basename(filepath))[0]
+        
+        self.song_names[song_id] = song_name
+
+        for hash_val, time_offset in fingerprints:
+            self.table.insert(hash_val, (song_id, time_offset))
+        
+        print(f"indexed song_id {song_id} - {song_name}" )
+
+        return song_id
 
     def index_directory(self, directory):
         """
@@ -82,7 +101,11 @@ class SongDatabase:
             directory: Path to a directory containing .wav files
         """
         # TODO: Implement index_directory
-        raise NotImplementedError("Implement index_directory()")
+        import os
+
+        for file in os.listdir(directory):
+            full_path = os.path.join(directory, file)
+            self.index_song(full_path)
 
     # ------------------------------------------------------------------ #
     # Serialization — YOU IMPLEMENT THESE
@@ -120,8 +143,6 @@ class SongDatabase:
             filepath: Where to save the JSON file (e.g., "data/database.json")
         """
         # TODO: Implement save
-        raise NotImplementedError("Implement save()")
-
     @classmethod
     def load(cls, filepath):
         """
@@ -148,4 +169,4 @@ class SongDatabase:
             A new SongDatabase instance with all data restored
         """
         # TODO: Implement load
-        raise NotImplementedError("Implement load()")
+        

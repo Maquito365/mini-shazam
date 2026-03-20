@@ -126,7 +126,18 @@ def find_peaks(spec, neighborhood_freq=PEAK_NEIGHBORHOOD_FREQ,
     # -------------------------------------------------------------- #
     # STEP 1: For each time frame, pick the loudest bin per band
     # -------------------------------------------------------------- #
-    band_peaks = set()
+    band_peaks = set() 
+    for t in range(n_time):
+        col = spec[:, t]              # the entire frequency column at time t
+        for lo, hi in freq_bands:
+            hi = min(hi, n_freq)          # clamp to spectrogram size
+            if lo >= n_freq:
+                break
+            band_slice = col[lo:hi]       # just this band
+            f_local = np.argmax(band_slice)  # loudest bin within the band
+            f_global = lo + f_local       # convert to global index
+            if col[f_global] > threshold: # above percentile threshold?
+                band_peaks.add((t, f_global))
 
     # TODO: Implement band-based peak selection
     #
@@ -139,8 +150,18 @@ def find_peaks(spec, neighborhood_freq=PEAK_NEIGHBORHOOD_FREQ,
     #     - Convert back to a global frequency index: f_global = lo + f_local
     #     - If spec[f_global, t] > threshold, add (t, f_global) to band_peaks
 
-    raise NotImplementedError("Implement Step 1 of find_peaks()")
-
+    band_peaks = set() 
+    for t in range(n_time):
+        col = spec[:, t]              # the entire frequency column at time t
+        for lo, hi in freq_bands:
+            hi = min(hi, n_freq)          # clamp to spectrogram size
+            if lo >= n_freq:
+                break
+            band_slice = col[lo:hi]       # just this band
+            f_local = np.argmax(band_slice)  # loudest bin within the band
+            f_global = lo + f_local       # convert to global index
+            if col[f_global] > threshold: # above percentile threshold?
+                band_peaks.add((t, f_global))
     # -------------------------------------------------------------- #
     # STEP 2: Apply local-max filter to remove redundant peaks
     # -------------------------------------------------------------- #
@@ -154,9 +175,12 @@ def find_peaks(spec, neighborhood_freq=PEAK_NEIGHBORHOOD_FREQ,
     #    (Note: spec is indexed as [freq, time] but peaks are stored as (time, freq))
     #
     # 3. Return the filtered peaks as a list of (int(t), int(f)) tuples
-
-    raise NotImplementedError("Implement Step 2 of find_peaks()")
-
+    local_max = maximum_filter(spec, size=(neighborhood_freq, neighborhood_time))
+    peaks = []
+    for t, f in band_peaks:
+        if spec[f, t] == local_max[f, t]:      # is it a true local max?
+            peaks.append((int(t), int(f)))
+    return peaks
 
 # ------------------------------------------------------------------ #
 # Step 3: Hash two peaks into a fingerprint — YOU IMPLEMENT THIS
@@ -203,10 +227,8 @@ def hash_peak_pair(f1, f2, dt):
     """
     # TODO: Implement the bit-packing formula
     #
-    # h = (f1 << (FREQ_BITS + DELTA_BITS)) | (f2 << DELTA_BITS) | dt
-
-    raise NotImplementedError("Implement hash_peak_pair()")
-
+    h = (f1 << (FREQ_BITS + DELTA_BITS)) | (f2 << DELTA_BITS) | dt
+    return h
 
 # ------------------------------------------------------------------ #
 # Step 4: Fingerprint generation — YOU IMPLEMENT THIS
@@ -264,7 +286,23 @@ def generate_fingerprints(peaks, fan_out=FAN_OUT,
     #     paired += 1
     #     if paired >= fan_out: break
 
-    raise NotImplementedError("Implement generate_fingerprints()")
+    peaks = sorted(peaks, key=lambda p: (p[0], p[1]))
+    fingerprints = []
+
+    for i, (t1, f1) in enumerate(peaks):
+        paired = 0
+        for j in range(i + 1, len(peaks)):
+            t2, f2 = peaks[j]
+            dt = t2 - t1
+            if dt < zone_start:
+                continue                  # too close, skip
+            if dt > zone_end:
+                break                     # too far, stop
+            h = hash_peak_pair(f1, f2, dt)
+            fingerprints.append((h, t1))
+            paired += 1
+            if paired >= fan_out:
+                break                     # enough pairs for this anchor
 
     return fingerprints
 
